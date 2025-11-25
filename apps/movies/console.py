@@ -46,7 +46,7 @@ def add_movie(app: MoviesSearchApp, movie_id: int, title: str, description: str,
     ))
 
 
-@cli_movies_search.command(name="search")
+@cli_movies_search.command(name="search-vector")
 @click.option("--description", help="description of a movie", required=True)
 @click.option("--amount", help="max number of movies you would like to see", default=3, required=True)
 @click.pass_obj
@@ -75,17 +75,6 @@ def search_by_keywords(app: MoviesSearchApp, query: str, amount: int):
     }
     results = app.opensearch_client.search(index=app.db_index, body=body)
     print(results["hits"]["hits"])
-
-
-def add_some_movie_data(app: MoviesSearchApp):
-    movie_data = {
-        "Rank": "1",
-        "Title": "The Shawshank Redemption",
-        "Genre": "Drama",
-        "Description": "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
-    }
-
-    app.add(movie_data)
 
 
 def main():
