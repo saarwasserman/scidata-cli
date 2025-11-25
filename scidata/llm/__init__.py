@@ -1,8 +1,8 @@
 import click
 
-from scidata.openai.chat import cli_openai_chat
-from scidata.openai.embeddings import cli_openai_embeddings
-from scidata.openai.batch import cli_openai_batch
+from scidata.ai.chat import cli_openai_chat
+from scidata.ai.embeddings import cli_openai_embeddings
+from scidata.ai.batch import cli_openai_batch
 
 
 @click.group(name="openai")

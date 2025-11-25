@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from openai import OpenAI
 
 
 class Settings(BaseSettings):
