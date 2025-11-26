@@ -77,38 +77,45 @@ class MoviesSearchApp(HybridSearchApp):
 
         print(f"batch file is ready to be uploaded: {jsonl_out_filepath}")
 
-    # def populate(self, documents_filepath, embeddings_filepath):
-    #     movies = {}
-    #     with open(documents_filepath, "r") as movies_file:
-    #         # with open("/Users/saarw/Workspace/apps/dinghy/scidata/scidata/datasets/imdb/imdb.csv", "r") as movies_file:
-    #         reader = csv.DictReader(movies_file, delimiter=",")
-    #         for row in reader:
-    #             movies[row["Rank"]] = row
+    def populate(self, documents_filepath, embeddings_filepath):
+        """
+        Stores the movies data from the csv file into opensearch index
+        
+        :param self: Description
+        :param documents_filepath: Description
+        :param embeddings_filepath: Description
+        """
 
-    #         with open(embeddings_filepath, "r") as embed_file:
-    #             for row in embed_file:
-    #                 result = json.loads(row)
-    #                 movies[result["custom_id"]
-    #                        ]["Description_embed"] = result["response"]["body"]["data"][0]["embedding"]
+        movies = {}
+        with open(documents_filepath, "r") as movies_file:
+            reader = csv.DictReader(movies_file, delimiter=",")
+            for row in reader:
+                movies[row["Rank"]] = row
 
-    #     # create documents for bulk send to opensearch
-    #     documents = []
-    #     for movie in movies.values():
-    #         documents.append({
-    #             "_op_type": "index",
-    #             "_index": self.db_index,
-    #             # TODO: take the dataclass and convert to dict with asdict.  only add the embedding later
-    #             "_id": movie["Rank"],
-    #             "_source": {
-    #                 "title": movie["Title"],
-    #                 "genres": movie["Genre"],
-    #                 "description": movie["Description"],
-    #                 "embedding": movie["Description_embed"]
-    #             }
-    #         })
+            with open(embeddings_filepath, "r") as embed_file:
+                for row in embed_file:
+                    result = json.loads(row)
+                    movies[result["custom_id"]
+                           ]["Description_embed"] = result["response"]["body"]["data"][0]["embedding"]
 
-    #     if documents:
-    #         bulk(self.opensearch_client, documents)
+        # create documents for bulk send to opensearch
+        documents = []
+        for movie in movies.values():
+            documents.append({
+                "_op_type": "index",
+                "_index": self.db_index,
+                # TODO: take the dataclass and convert to dict with asdict.  only add the embedding later
+                "_id": movie["Rank"],
+                "_source": {
+                    "title": movie["Title"],
+                    "genres": movie["Genre"],
+                    "description": movie["Description"],
+                    "embedding": movie["Description_embed"]
+                }
+            })
+
+        if documents:
+            bulk(self.opensearch_client, documents)
 
     def add(self, movie_data):
         """ Add movie to DB """
@@ -124,6 +131,3 @@ class MoviesSearchApp(HybridSearchApp):
         )
 
         self.index(movie)
-
-    def remove():
-        pass

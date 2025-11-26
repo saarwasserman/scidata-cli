@@ -212,7 +212,7 @@ class HybridSearchApp:
         results = self.opensearch_client.search(index=self.db_index, body=body)
         return results
     
-    def search_hybrid(self, query: str, amount: int, filter: dict | None = None, vector_alpha: float = 0.5):
+    def search_by_hybrid(self, query: str, amount: int, filter: dict | None = None, vector_alpha: float = 0.5):
         """ get similar contents by keywords and vector similarity"""
 
         keywords_alpha = 1.0 - vector_alpha    
@@ -223,9 +223,22 @@ class HybridSearchApp:
         keywords_results = self.search_by_keywords(query, amount, filter)
         keywords_scores = {hit["_id"]: self.normalize(hit["_score"]) for hit in keywords_results["hits"]["hits"]}
         
-        combined_scores = (vector_alpha * np.array(vector_scores) + (1 - vector_alpha) * np.array(keywords_scores)).tolist()
+        all_ids = set(vector_scores.keys()) | set(keywords_scores.keys())
+        combined_scores = {}
+
+        for doc_id in all_ids:
+            v_score = vector_scores.get(doc_id, 0.0)
+            k_score = keywords_scores.get(doc_id, 0.0)
+            combined_scores[doc_id] = vector_alpha * v_score + (1 - vector_alpha) * k_score
+
         print(combined_scores)
         # return results
 
     def event_batch_embeddings_completed(self, batch_id: str):
         pass
+
+    
+    def delete(self, doc_id: str):
+        """ Delete document from index based on it's doc id """
+        
+        self.opensearch_client.delete(index=self.db_index, id=doc_id)

@@ -77,6 +77,24 @@ def search_by_keywords(app: MoviesSearchApp, query: str, amount: int):
     print(results["hits"]["hits"])
 
 
+@cli_movies_search.command(name="search-hybrid")
+@click.option("--query", help="keyword search query", required=True)
+@click.option("--amount", help="max number of movies you would like to see", default=3, required=True)
+@click.pass_obj
+def search_by_hybrid(app: MoviesSearchApp, query: str, amount: int):
+    """retrives results using hybrid search (keywords + vector similarity)"""
+
+    results = app.search_by_hybrid(query, amount)
+    print(results)
+
+@cli_movies_search.command(name="delete")
+@click.option("--movie_id", help="ID of the movie to delete", required=True)
+@click.pass_obj
+def delete_movie(app: MoviesSearchApp, movie_id: str):
+    """Remove a movie from the database"""
+    app.delete(movie_id)
+
+
 def main():
     cli_movies_search()
 
