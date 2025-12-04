@@ -53,7 +53,6 @@ def add_movie(app: MoviesSearchApp, movie_id: int, title: str, description: str,
 def search_by_vector(app: MoviesSearchApp, description: str, amount: int):
     """ get similar movies by description"""
     results = app.search_by_vector(description, amount)
-    print(results["hits"]["hits"])
 
 
 @cli_movies_search.command(name="search-keywords")
@@ -74,7 +73,6 @@ def search_by_keywords(app: MoviesSearchApp, query: str, amount: int):
         }
     }
     results = app.opensearch_client.search(index=app.db_index, body=body)
-    print(results["hits"]["hits"])
 
 
 @cli_movies_search.command(name="search-hybrid")
@@ -85,7 +83,6 @@ def search_by_hybrid(app: MoviesSearchApp, query: str, amount: int):
     """retrives results using hybrid search (keywords + vector similarity)"""
 
     results = app.search_by_hybrid(query, amount)
-    print(results)
 
 @cli_movies_search.command(name="delete")
 @click.option("--movie_id", help="ID of the movie to delete", required=True)

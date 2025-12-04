@@ -10,10 +10,12 @@ from opensearchpy.helpers import bulk
 from openai import OpenAI
 
 from scidata.config import settings
+from scidata import logger
 
 @dataclass
 class BaseDocument:
     id: str
+    embedding: List[float] | None
 
     def __post_init__(self):
         if self.id is None:
@@ -65,6 +67,9 @@ class HybridSearchApp:
         self.field = field
         self.model = model
 
+        self.opensearch_client = None
+        self.openai_client = None
+
     def __enter__(self):
         
         self.opensearch_client = OpenSearch(
@@ -77,12 +82,16 @@ class HybridSearchApp:
 
         # create index if not exists
         if not self.opensearch_client.indices.exists(index=self.db_index):
-            print("Creating index...")
+            logger.info("Creating index", extra={"index": self.db_index})
             self.create_db_index()
 
         self.openai_client = OpenAI(api_key=settings.openai_api_key,
                                     organization=settings.openai_organization_id,
                                     project=settings.openai_project_id)
+        
+
+        logger.debug("Initialized OpenSearch and OpenAI clients")
+
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
@@ -90,7 +99,7 @@ class HybridSearchApp:
         self.openai_client.close()
 
     def create_db_index(self):
-        """ """
+        """Create OpenSearch index with hybrid search mappings"""
 
         with OpenSearch(
             hosts=[{"host": settings.opensearch_host, "port": settings.opensearch_port}],
@@ -99,11 +108,13 @@ class HybridSearchApp:
             verify_certs=False,
             connection_class=RequestsHttpConnection,
         ) as opensearch_client:
-            createRes = opensearch_client.indices.create(
-                index=self.db_index, body=HybridSearchApp.OPENSEARCH_INDEX_BODY)
-            getRes = opensearch_client.indices.get(self.db_index)
-
-        print(response)
+            try:
+                createRes = opensearch_client.indices.create(
+                    index=self.db_index, body=HybridSearchApp.OPENSEARCH_INDEX_BODY)
+                getRes = opensearch_client.indices.get(self.db_index)
+                logger.debug("Index created successfully", extra={"index": self.db_index, "status": "created"})
+            except Exception as e:
+                logger.error("Failed to create index", extra={"index": self.db_index, "error": str(e)})
 
     ### TODO: Chunking Methods ###
     def chunks(self):
@@ -116,14 +127,15 @@ class HybridSearchApp:
         for obj in objs:
             documents.append({
                 "_op_type": "index",
-                "_index": self.index,
-                # TODO: take the dataclass and convert to dict with asdict.  only add the embedding later
+                "_index": self.db_index,
                 "_id": obj.id,
                 "_source": asdict(obj)
             })
 
         if documents:
             bulk(self.opensearch_client, documents)
+
+        logger.info("indexed batch of documents", extra={"count": len(documents)})
 
 
     def index(self, obj: BaseDocument):
@@ -152,6 +164,8 @@ class HybridSearchApp:
                 embedding of the description
             """
 
+            logger.debug("creating embedding", extra={"content": content})
+
             embedding = None
             try:
                 response = self.openai_client.embeddings.create(
@@ -159,9 +173,8 @@ class HybridSearchApp:
                     model=self.model
                 )
             except Exception as e:
-                print(f"Error creating embedding: {e}")
+                logger.error("Error creating embedding", extra={"error": str(e), "content": content})
                 raise e
-
 
             embedding = response.data[0].embedding
             if normalize:
@@ -191,6 +204,7 @@ class HybridSearchApp:
             }
         }
 
+        logger.debug("searched by vector", extra={"query": query, "amount": amount})
         results = self.opensearch_client.search(index=self.db_index, body=body)
         return results
     
@@ -209,6 +223,7 @@ class HybridSearchApp:
             }
         }
 
+        logger.debug("searched by keywords", extra={"query": query, "amount": amount})
         results = self.opensearch_client.search(index=self.db_index, body=body)
         return results
     
@@ -231,8 +246,8 @@ class HybridSearchApp:
             k_score = keywords_scores.get(doc_id, 0.0)
             combined_scores[doc_id] = vector_alpha * v_score + (1 - vector_alpha) * k_score
 
-        print(combined_scores)
-        # return results
+        logger.debug("combined scores calculated", extra={"combined_scores": combined_scores})
+
 
     def event_batch_embeddings_completed(self, batch_id: str):
         pass
@@ -242,3 +257,4 @@ class HybridSearchApp:
         """ Delete document from index based on it's doc id """
         
         self.opensearch_client.delete(index=self.db_index, id=doc_id)
+        logger.info("deleted document", extra={"doc_id": doc_id})

@@ -12,7 +12,6 @@ class Movie(BaseDocument):
     title: str
     description: str
     genres: List[str]
-    embedding: List[float] | None = None
 
 
 # TODO: Implement Chunking Method
@@ -75,7 +74,6 @@ class MoviesSearchApp(HybridSearchApp):
         with open(jsonl_out_filepath, "w") as batch_file:
             batch_file.write('\n'.join(map(json.dumps, requests)))
 
-        print(f"batch file is ready to be uploaded: {jsonl_out_filepath}")
 
     def populate(self, documents_filepath, embeddings_filepath):
         """
