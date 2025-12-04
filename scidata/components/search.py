@@ -140,12 +140,17 @@ class HybridSearchApp:
 
     def index(self, obj: BaseDocument):
         # update embedding
-        embedding = self.create_embedding(getattr(obj, self.field))
-        obj.embedding = embedding
-        data=asdict(obj)
+        try:
+            embedding = self.create_embedding(getattr(obj, self.field))
+            obj.embedding = embedding
+            data=asdict(obj)
 
-        self.opensearch_client.index(
-            index=self.db_index, id=obj.id, body=data)
+            self.opensearch_client.index(
+                index=self.db_index, id=obj.id, body=data)
+            logger.debug("indexed document", extra={"doc_id": obj.id})
+        except Exception as e:
+            logger.error("failed to index document", exc_info=True, extra={"doc_id": obj.id})
+            raise
 
     def normalize(self, embedding: List[float]) -> List[float]:
         nrr = np.array(embedding, dtype=np.float32)  # Ensure proper type
@@ -187,45 +192,51 @@ class HybridSearchApp:
 
     def search_by_vector(self, query: str, amount: int, filter: dict | None = None):
         """ get similar movies by description"""
-
-        embedding = self.create_embedding(query)
-        body = {
-            "size": amount,
-            "_source": {
-                "excludes": ["embedding"],
-            },
-            "query": {
-                "knn": {
-                    "embedding": {
-                        "vector": embedding,
-                        "k": amount
+        try:
+            embedding = self.create_embedding(query)
+            body = {
+                "size": amount,
+                "_source": {
+                    "excludes": ["embedding"],
+                },
+                "query": {
+                    "knn": {
+                        "embedding": {
+                            "vector": embedding,
+                            "k": amount
+                        }
                     }
                 }
             }
-        }
 
-        logger.debug("searched by vector", extra={"query": query, "amount": amount})
-        results = self.opensearch_client.search(index=self.db_index, body=body)
-        return results
+            logger.debug("searched by vector", extra={"query": query, "amount": amount})
+            results = self.opensearch_client.search(index=self.db_index, body=body)
+            return results
+        except Exception as e:
+            logger.error("vector search failed", exc_info=True, extra={"query": query, "amount": amount})
+            raise
     
     def search_by_keywords(self, query: str, amount: int, filter: dict | None = None):
         """ get similar contents by keywords"""
-
-        body = {
-            "size": amount,
-            "_source": {
-                "excludes": ["embedding"],
-            },
-            "query": {
-                "match": {
-                    self.field: query
+        try:
+            body = {
+                "size": amount,
+                "_source": {
+                    "excludes": ["embedding"],
+                },
+                "query": {
+                    "match": {
+                        self.field: query
+                    }
                 }
             }
-        }
 
-        logger.debug("searched by keywords", extra={"query": query, "amount": amount})
-        results = self.opensearch_client.search(index=self.db_index, body=body)
-        return results
+            logger.debug("searched by keywords", extra={"query": query, "amount": amount})
+            results = self.opensearch_client.search(index=self.db_index, body=body)
+            return results
+        except Exception as e:
+            logger.error("keyword search failed", exc_info=True, extra={"query": query, "amount": amount})
+            raise
     
     def search_by_hybrid(self, query: str, amount: int, filter: dict | None = None, vector_alpha: float = 0.5):
         """ get similar contents by keywords and vector similarity"""
@@ -255,6 +266,8 @@ class HybridSearchApp:
     
     def delete(self, doc_id: str):
         """ Delete document from index based on it's doc id """
-        
-        self.opensearch_client.delete(index=self.db_index, id=doc_id)
-        logger.info("deleted document", extra={"doc_id": doc_id})
+        try:
+            self.opensearch_client.delete(index=self.db_index, id=doc_id)
+            logger.info("deleted document", extra={"doc_id": doc_id})
+        except Exception as e:
+            logger.error("failed to delete document", exc_info=True, extra={"doc_id": doc_id})

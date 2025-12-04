@@ -12,6 +12,14 @@ from scidata.config import settings
 class JSONFormatter(logging.Formatter):
     """Format log records as JSON"""
     
+    # Standard logging fields to exclude from extra fields
+    STANDARD_FIELDS = {
+        'name', 'msg', 'args', 'created', 'filename', 'funcName', 'levelname', 'levelno',
+        'lineno', 'module', 'msecs', 'message', 'pathname', 'process', 'processName',
+        'relativeCreated', 'thread', 'threadName', 'exc_info', 'exc_text', 'stack_info',
+        'asctime', 'taskName'
+    }
+    
     def format(self, record: logging.LogRecord) -> str:
         log_data = {
             "timestamp": self.formatTime(record, self.datefmt),
@@ -23,9 +31,10 @@ class JSONFormatter(logging.Formatter):
             "line": record.lineno,
         }
         
-        # Add extra fields if they exist
-        if hasattr(record, "extra_fields"):
-            log_data.update(record.extra_fields)
+        # Add any extra fields that were passed via logger.info(..., extra={})
+        for key, value in record.__dict__.items():
+            if key not in self.STANDARD_FIELDS:
+                log_data[key] = value
         
         # Add exception info if present
         if record.exc_info:
