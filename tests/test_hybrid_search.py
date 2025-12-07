@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from scidata.components.search import HybridSearchApp, BaseDocument
 
 
@@ -8,7 +8,7 @@ class TestBaseDocument:
 
     def test_base_document_with_valid_id(self):
         """Test creating BaseDocument with valid id"""
-        doc = BaseDocument(id="123")
+        doc = BaseDocument(id="123", embedding=None)
         assert doc.id == "123"
 
     def test_base_document_with_none_id_raises_error(self):
@@ -20,8 +20,8 @@ class TestBaseDocument:
 class TestHybridSearchApp:
     """Test HybridSearchApp class"""
 
-    @patch('scidata.components.search.OpenSearch')
-    @patch('scidata.components.search.OpenAI')
+    @patch('scidata.components.search.AsyncOpenSearch')
+    @patch('scidata.components.search.AsyncOpenAI')
     def test_init(self, mock_openai, mock_opensearch):
         """Test HybridSearchApp initialization"""
         app = HybridSearchApp(
@@ -36,13 +36,19 @@ class TestHybridSearchApp:
         assert app.opensearch_client is None
         assert app.openai_client is None
 
-    @patch('scidata.components.search.OpenSearch')
-    @patch('scidata.components.search.OpenAI')
-    def test_context_manager_enter(self, mock_openai, mock_opensearch):
+    @pytest.mark.asyncio
+    @patch('scidata.components.search.AsyncOpenSearch')
+    @patch('scidata.components.search.AsyncOpenAI')
+    async def test_context_manager_enter(self, mock_openai, mock_opensearch):
         """Test context manager __enter__ method"""
-        mock_os_client = MagicMock()
+        mock_os_client = AsyncMock()
+        mock_os_client.indices.exists = AsyncMock(return_value=False)
+        mock_os_client.close = AsyncMock()
         mock_opensearch.return_value = mock_os_client
-        mock_openai.return_value = MagicMock()
+        
+        mock_openai_client = AsyncMock()
+        mock_openai_client.close = AsyncMock()
+        mock_openai.return_value = mock_openai_client
 
         app = HybridSearchApp(
             index="test-index",
@@ -50,17 +56,23 @@ class TestHybridSearchApp:
             model="text-embedding-3-small"
         )
 
-        with app as context_app:
+        async with app as context_app:
             assert context_app.opensearch_client is not None
             assert context_app.openai_client is not None
 
-    @patch('scidata.components.search.OpenSearch')
-    @patch('scidata.components.search.OpenAI')
-    def test_normalize_embedding(self, mock_openai, mock_opensearch):
+    @pytest.mark.asyncio
+    @patch('scidata.components.search.AsyncOpenSearch')
+    @patch('scidata.components.search.AsyncOpenAI')
+    async def test_normalize_embedding(self, mock_openai, mock_opensearch):
         """Test embedding normalization"""
-        mock_os_client = MagicMock()
+        mock_os_client = AsyncMock()
+        mock_os_client.indices.exists = AsyncMock(return_value=False)
+        mock_os_client.close = AsyncMock()
         mock_opensearch.return_value = mock_os_client
-        mock_openai.return_value = MagicMock()
+        
+        mock_openai_client = AsyncMock()
+        mock_openai_client.close = AsyncMock()
+        mock_openai.return_value = mock_openai_client
 
         app = HybridSearchApp(
             index="test-index",
@@ -68,7 +80,7 @@ class TestHybridSearchApp:
             model="text-embedding-3-small"
         )
 
-        with app:
+        async with app:
             # Test normalization
             embedding = [3.0, 4.0]
             normalized = app.normalize(embedding)
@@ -77,13 +89,19 @@ class TestHybridSearchApp:
             assert abs(normalized[0] - 0.6) < 0.001
             assert abs(normalized[1] - 0.8) < 0.001
 
-    @patch('scidata.components.search.OpenSearch')
-    @patch('scidata.components.search.OpenAI')
-    def test_normalize_embedding_zero_vector(self, mock_openai, mock_opensearch):
+    @pytest.mark.asyncio
+    @patch('scidata.components.search.AsyncOpenSearch')
+    @patch('scidata.components.search.AsyncOpenAI')
+    async def test_normalize_embedding_zero_vector(self, mock_openai, mock_opensearch):
         """Test normalization of zero vector"""
-        mock_os_client = MagicMock()
+        mock_os_client = AsyncMock()
+        mock_os_client.indices.exists = AsyncMock(return_value=False)
+        mock_os_client.close = AsyncMock()
         mock_opensearch.return_value = mock_os_client
-        mock_openai.return_value = MagicMock()
+        
+        mock_openai_client = AsyncMock()
+        mock_openai_client.close = AsyncMock()
+        mock_openai.return_value = mock_openai_client
 
         app = HybridSearchApp(
             index="test-index",
@@ -91,7 +109,7 @@ class TestHybridSearchApp:
             model="text-embedding-3-small"
         )
 
-        with app:
+        async with app:
             # Zero vector should return as-is
             zero_embedding = [0.0, 0.0, 0.0]
             normalized = app.normalize(zero_embedding)
@@ -101,9 +119,7 @@ class TestHybridSearchApp:
 class TestHybridSearchIntegration:
     """Integration tests for HybridSearchApp"""
 
-    @patch('scidata.components.search.OpenSearch')
-    @patch('scidata.components.search.OpenAI')
-    def test_opensearch_index_body_structure(self, mock_openai, mock_opensearch):
+    def test_opensearch_index_body_structure(self):
         """Test that index body has correct structure"""
         index_body = HybridSearchApp.OPENSEARCH_INDEX_BODY
         
@@ -114,9 +130,7 @@ class TestHybridSearchIntegration:
         assert "embedding" in index_body["mappings"]["properties"]
         assert "content" in index_body["mappings"]["properties"]
 
-    @patch('scidata.components.search.OpenSearch')
-    @patch('scidata.components.search.OpenAI')
-    def test_knn_settings_enabled(self, mock_openai, mock_opensearch):
+    def test_knn_settings_enabled(self):
         """Test that k-NN is enabled in index settings"""
         index_body = HybridSearchApp.OPENSEARCH_INDEX_BODY
         

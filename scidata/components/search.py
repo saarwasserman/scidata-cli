@@ -1,13 +1,9 @@
-import csv
 from dataclasses import asdict, dataclass
-import json
-from pathlib import Path
 from typing import List
 
 import numpy as np
-from opensearchpy import OpenSearch, AsyncOpenSearch, AWSV4SignerAuth
-from opensearchpy.helpers import async_bulk
-from openai import OpenAI, AsyncOpenAI
+from opensearchpy import AsyncOpenSearch
+from openai import AsyncOpenAI
 
 from scidata.config import settings
 from scidata import logger
@@ -116,33 +112,6 @@ class HybridSearchApp:
             logger.debug("Index created successfully", extra={"index": self.db_index, "status": "created"})
         except Exception as e:
             logger.error("Failed to create index", extra={"index": self.db_index, "error": str(e)})
-
-    ### TODO: Chunking Methods ###
-    def chunks(self):
-        pass
-
-    ### TODO: Embeddings Methods - Batch <-> Pipeline, Async/Sync <-> InPlace ###
-        
-    # async def index_batch(self, objs: List[BaseDocument]):
-    #     documents = []
-    #     for obj in objs:
-    #         documents.append({
-    #             "_op_type": "index",
-    #             "_index": self.db_index,
-    #             "_id": obj.id,
-    #             "_source": asdict(obj)
-    #         })
-
-    #     if documents:
-    #         try:
-    #             async for ok, action in async_bulk(self.opensearch_client, documents):
-    #                 if not ok:
-    #                     logger.error("Bulk action failed", extra={"action": action})
-    #             logger.info("indexed batch of documents", extra={"count": len(documents)})
-    #         except Exception as e:
-    #             logger.error("Bulk indexing failed", exc_info=True, extra={"count": len(documents)})
-    #             raise
-
 
     async def index(self, obj: BaseDocument):
         # update embedding
@@ -259,9 +228,6 @@ class HybridSearchApp:
 
         keywords_results = await self.search_by_keywords(query, amount, filter)
         keywords_scores = {hit["_id"]: self.normalize(hit["_score"]) for hit in keywords_results["hits"]["hits"]}
-        
-        print("vector scores:", vector_scores)  # --- IGNORE ---
-        print("keywords scores:", keywords_scores)  # --- IGNORE ---
 
         all_ids = set(vector_scores.keys()) | set(keywords_scores.keys())
         combined_scores = {}
