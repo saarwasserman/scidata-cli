@@ -23,3 +23,8 @@ you will be able to use knn vector search
 3. Index the documents (can use bulk operation)
 4. For Search: input a description you like, create embedding for it and search based on it, related movies will be retrieved
 5. you can add more movies to opensearch db
+
+
+# Usage
+
+uv run python -m apps.console movies add --movie_id=2 --description="a drama about a family in the wild west" --title="living in the wild" --genre=western --genre=drama

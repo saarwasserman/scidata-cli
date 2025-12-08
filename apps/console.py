@@ -4,18 +4,16 @@
 import click
 
 #from nblade import settings  # pylint: disable=unused-import
-from scidata.openai import cli_openai
-from scidata.apps import cli_apps
+from apps.movies.console import cli_movies_search
 
 
 # pylint: disable=missing-function-docstring
-@click.group(name="dinghy-scidata")
+@click.group(name="apps")
 def cli():
     pass
 
 def main():
-    cli.add_command(cli_openai)
-    cli.add_command(cli_apps)
+    cli.add_command(cli_movies_search)
     cli()
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from openai import OpenAI
 
 
 class Settings(BaseSettings):
@@ -13,8 +12,8 @@ class Settings(BaseSettings):
     opensearch_port: int
     opensearch_username: str
     opensearch_password: str
+
+    # logging
+    log_level: str = "DEBUG"
     
     model_config = SettingsConfigDict(env_file=".env")
-    
-
-settings = Settings()

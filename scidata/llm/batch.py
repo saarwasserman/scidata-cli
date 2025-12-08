@@ -29,8 +29,6 @@ def upload_file_for_batch(filepath: str):
             purpose="batch"
         )
     
-    print(batch_file)
-
 
 @cli_openai_batch.command(name="create")
 @click.option("--file_id", help="jsonl id file in openai storage", required=True)
@@ -41,8 +39,6 @@ def create_batch(file_id: str, endpoint: Literal["chat/completions", "embeddings
         endpoint=f"/v1/{endpoint}",
         completion_window="24h"
     )
-    
-    print(batch)
 
 
 @cli_openai_batch.command(name="show_jobs")
@@ -54,7 +50,6 @@ def show_batch_jobs_ids():
 @click.option("--batch_id", help="show status of the batch", required=True)
 def check_batch_status(batch_id):
     batch_job = openai_client.batches.retrieve(batch_id)
-    print(batch_job)
 
 
 @cli_openai_batch.command(name="output")
@@ -67,7 +62,3 @@ def check_batch_status(batch_id):
 
         with open(filename, 'wb') as file:
             file.write(result)
-            print(f"wrote results to file: {filename}")    
-        
-    else:
-        print(f"batch status: {batch_job.status}")
