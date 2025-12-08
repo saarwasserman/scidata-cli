@@ -17,6 +17,3 @@ class Settings(BaseSettings):
     log_level: str = "DEBUG"
     
     model_config = SettingsConfigDict(env_file=".env")
-    
-
-settings = Settings()

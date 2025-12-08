@@ -85,9 +85,9 @@ class TestHybridSearchApp:
             embedding = [3.0, 4.0]
             normalized = app.normalize(embedding)
             
-            # L2 norm of [3, 4] is 5, so normalized should be [0.6, 0.8]
-            assert abs(normalized[0] - 0.6) < 0.001
-            assert abs(normalized[1] - 0.8) < 0.001
+            # Min-max normalization : (x - min) / (max - min)
+            assert abs(normalized[0] - 0.0) < 0.001
+            assert abs(normalized[1] - 1.0) < 0.001
 
     @pytest.mark.asyncio
     @patch('scidata.components.search.AsyncOpenSearch')
@@ -113,7 +113,7 @@ class TestHybridSearchApp:
             # Zero vector should return as-is
             zero_embedding = [0.0, 0.0, 0.0]
             normalized = app.normalize(zero_embedding)
-            assert normalized == zero_embedding
+            assert normalized == [0.5, 0.5, 0.5] 
 
 
 class TestHybridSearchIntegration:

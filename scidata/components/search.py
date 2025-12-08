@@ -1,11 +1,11 @@
 from dataclasses import asdict, dataclass
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 from opensearchpy import AsyncOpenSearch
 from openai import AsyncOpenAI
 
-from scidata.config import settings
+from scidata.config import Settings
 from scidata import logger
 
 @dataclass
@@ -62,37 +62,38 @@ class HybridSearchApp:
         self.db_index = index
         self.field = field
         self.model = model
-
-        self.opensearch_client = None
-        self.openai_client = None
+        self.logger = logger.get_logger("scidata.components.search")
+        self.settings: Optional[Settings] = Settings()
+        self.opensearch_client: Optional[AsyncOpenSearch] = None
+        self.openai_client: Optional[AsyncOpenAI] = None
 
     async def __aenter__(self):
-        
-        self.opensearch_client = AsyncOpenSearch(
-            hosts=[{"host": settings.opensearch_host, "port": settings.opensearch_port}],
-            http_auth=(settings.opensearch_username, settings.opensearch_password),
-            use_ssl=True,
-            verify_certs=False
-        )
+        if not self.opensearch_client:
+            self.opensearch_client = AsyncOpenSearch(
+                hosts=[{"host": self.settings.opensearch_host, "port": self.settings.opensearch_port}],
+                http_auth=(self.settings.opensearch_username, self.settings.opensearch_password),
+                use_ssl=True,
+                verify_certs=False
+            )
 
         # create index if not exists
         try:
             index_exists = await self.opensearch_client.indices.exists(index=self.db_index)
             if not index_exists:
-                logger.info("Creating index", extra={"index": self.db_index})
+                self.logger.info("Creating index", extra={"index": self.db_index})
                 await self.create_db_index()
         except Exception as e:
-            logger.warning("Could not check if index exists, will attempt to create", extra={"error": str(e)})
+            self.logger.warning("Could not check if index exists, will attempt to create", extra={"error": str(e)})
             try:
                 await self.create_db_index()
             except Exception as create_error:
-                logger.debug("Index creation failed or already exists", extra={"error": str(create_error)})
-
-        self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key,
-                                         organization=settings.openai_organization_id,
-                                         project=settings.openai_project_id)
+                self.logger.debug("Index creation failed or already exists", extra={"error": str(create_error)})
+        if not self.openai_client:
+            self.openai_client = AsyncOpenAI(api_key=self.settings.openai_api_key,
+                                             organization=self.settings.openai_organization_id,
+                                                 project=self.settings.openai_project_id)
         
-        logger.debug("Initialized OpenSearch and OpenAI clients")
+        self.logger.debug("Initialized OpenSearch and OpenAI clients")
 
         return self
 
@@ -109,9 +110,9 @@ class HybridSearchApp:
             createRes = await self.opensearch_client.indices.create(
                 index=self.db_index, body=HybridSearchApp.OPENSEARCH_INDEX_BODY)
             getRes = await self.opensearch_client.indices.get(self.db_index)
-            logger.debug("Index created successfully", extra={"index": self.db_index, "status": "created"})
+            self.logger.debug("Index created successfully", extra={"index": self.db_index, "status": "created"})
         except Exception as e:
-            logger.error("Failed to create index", extra={"index": self.db_index, "error": str(e)})
+            self.logger.error("Failed to create index", extra={"index": self.db_index, "error": str(e)})
 
     async def index(self, obj: BaseDocument):
         # update embedding
@@ -122,9 +123,9 @@ class HybridSearchApp:
 
             await self.opensearch_client.index(
                 index=self.db_index, id=obj.id, body=data)
-            logger.debug("indexed document", extra={"doc_id": obj.id})
+            self.logger.debug("indexed document", extra={"doc_id": obj.id})
         except Exception as e:
-            logger.error("failed to index document", exc_info=True, extra={"doc_id": obj.id})
+            self.logger.error("failed to index document", exc_info=True, extra={"doc_id": obj.id})
             raise
 
     def normalize(self, embedding: List[float]) -> List[float]:
@@ -149,7 +150,7 @@ class HybridSearchApp:
                 embedding of the description
             """
 
-            logger.debug("creating embedding", extra={"content": content})
+            self.logger.debug("creating embedding", extra={"content": content})
 
             embedding = None
             try:
@@ -158,7 +159,7 @@ class HybridSearchApp:
                     model=self.model
                 )
             except Exception as e:
-                logger.error("Error creating embedding", extra={"error": str(e), "content": content})
+                self.logger.error("Error creating embedding", extra={"error": str(e), "content": content})
                 raise e
 
             embedding = response.data[0].embedding
@@ -189,11 +190,11 @@ class HybridSearchApp:
                 }
             }
 
-            logger.debug("searched by vector", extra={"query": query, "amount": amount})
+            self.logger.debug("searched by vector", extra={"query": query, "amount": amount})
             results = await self.opensearch_client.search(index=self.db_index, body=body)
             return results
         except Exception as e:
-            logger.error("vector search failed", exc_info=True, extra={"query": query, "amount": amount})
+            self.logger.error("vector search failed", exc_info=True, extra={"query": query, "amount": amount})
             raise
     
     async def search_by_keywords(self, query: str, amount: int, filter: dict | None = None):
@@ -211,11 +212,11 @@ class HybridSearchApp:
                 }
             }
 
-            logger.debug("searched by keywords", extra={"query": query, "amount": amount})
+            self.logger.debug("searched by keywords", extra={"query": query, "amount": amount})
             results = await self.opensearch_client.search(index=self.db_index, body=body)
             return results
         except Exception as e:
-            logger.error("keyword search failed", exc_info=True, extra={"query": query, "amount": amount})
+            self.logger.error("keyword search failed", exc_info=True, extra={"query": query, "amount": amount})
             raise
     
     async def search_by_hybrid(self, query: str, amount: int, filter: dict | None = None, vector_alpha: float = 0.5):
@@ -237,7 +238,7 @@ class HybridSearchApp:
             k_score = keywords_scores.get(doc_id, 0.0)
             combined_scores[doc_id] = vector_alpha * v_score + (1 - vector_alpha) * k_score
 
-        logger.debug("combined scores calculated", extra={"combined_scores": combined_scores})
+        self.logger.debug("combined scores calculated", extra={"combined_scores": combined_scores})
 
 
     def event_batch_embeddings_completed(self, batch_id: str):
@@ -248,6 +249,6 @@ class HybridSearchApp:
         """ Delete document from index based on it's doc id """
         try:
             await self.opensearch_client.delete(index=self.db_index, id=doc_id)
-            logger.info("deleted document", extra={"doc_id": doc_id})
+            self.logger.info("deleted document", extra={"doc_id": doc_id})
         except Exception as e:
-            logger.error("failed to delete document", exc_info=True, extra={"doc_id": doc_id})
+            self.logger.error("failed to delete document", exc_info=True, extra={"doc_id": doc_id})

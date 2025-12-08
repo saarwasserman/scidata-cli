@@ -6,7 +6,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-from scidata.config import settings
+from scidata.config import Settings
 
 
 class JSONFormatter(logging.Formatter):
@@ -57,6 +57,8 @@ def get_logger(name: str, log_file: str = "logs/scidata.log", log_level: int = l
     """
     logging.captureWarnings(True)
     logger = logging.getLogger(name)
+    # Set up warning logging to JSON format
+    setup_warning_logging()
     
     # Only configure once
     if logger.handlers:
@@ -97,8 +99,3 @@ def setup_warning_logging():
     stdout_handler.setFormatter(json_formatter)
     warnings_logger.addHandler(stdout_handler)
 
-# Root logger for scidata
-logger = get_logger("scidata", log_level=settings.log_level)
-
-# Set up warning logging to JSON format
-setup_warning_logging()
